@@ -1,0 +1,1 @@
+web:gunicorn 'thinkbox:create_app()'
