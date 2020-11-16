@@ -1,1 +1,1 @@
-web:gunicorn 'thinkbox:create_app()'
+web: gunicorn 'thinkbox:create_app()'
