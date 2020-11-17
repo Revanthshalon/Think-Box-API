@@ -38,5 +38,8 @@ def test():
     droppable = request.form['drop']
     target = request.form['target']
     test_results = conduct_test(session['data'], target, droppable)
+    tr_data = test_results.T
+    significant_cols = tr_data[tr_data['test decision'] == 'significant'].index.to_list()
+    session['significant_cols'] = significant_cols
     return Response(response=test_results.to_json(), status=200,
                     content_type="application/json")
