@@ -32,6 +32,9 @@ class ProductionConfig(BaseConfig):
     JWT_ALGORITHM = "HS512"
     JWT_BLACKLIST_ENABLED = True
     JWT_BLACKLIST_TOKEN_CHECKS = ['access', 'refresh']
+    SESSION_TYPE = 'filesystem'
+    SESSION_COOKIE_SECURE = False
+    SECRET_KEY = os.urandom(32).hex()
 
 
 app_config = {
