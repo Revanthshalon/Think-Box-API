@@ -3,11 +3,13 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
+from flask_session import Session
 import config as Config
 
 db = SQLAlchemy()  # ORM Database
 ma = Marshmallow()  # Marshmallow for serialization
 jwt = JWTManager()  # Token Authentication
+sess = Session()  # Flask Session
 
 
 def create_app():
@@ -20,6 +22,7 @@ def create_app():
     db.init_app(app)
     ma.init_app(app)
     Migrate(app, db)
+    sess.init_app(app)
     jwt.init_app(app)
 
     # Import Models
@@ -30,9 +33,11 @@ def create_app():
     # Blueprints
     from thinkbox.auth import auth
     from thinkbox.dashboard import dash
+    from thinkbox.analytics import ana
 
     # Register Blueprints
     app.register_blueprint(auth, url_prefix="/auth")
     app.register_blueprint(dash, url_prefix="/dash")
+    app.register_blueprint(ana, url_prefix="/dash/analytics")
 
     return app

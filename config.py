@@ -13,11 +13,13 @@ class DevelopmentConfig(BaseConfig):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "mysql+pymysql://root:root@localhost:3306/temp"
     JWT_TOKEN_LOCATION = ["headers"]
-    JWT_ACCESS_TOKEN_EXPIRES = 180
-    JWT_REFRESH_TOKEN_EXPIRES = 1800
+    JWT_ACCESS_TOKEN_EXPIRES = 3600
+    JWT_REFRESH_TOKEN_EXPIRES = 3600
     JWT_ALGORITHM = "HS512"
     JWT_BLACKLIST_ENABLED = True
     JWT_BLACKLIST_TOKEN_CHECKS = ['access', 'refresh']
+    SESSION_TYPE = 'filesystem'
+    SESSION_COOKIE_SECURE = False
 
 
 class ProductionConfig(BaseConfig):
