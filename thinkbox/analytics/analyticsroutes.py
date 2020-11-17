@@ -26,7 +26,7 @@ def view():
         resp = Response(response=session['data'].to_json(index=False, orient='table'), status=200,
                         content_type="application/json")
         return resp
-    resp = Response(response=session['data'].head(int(viewhead)).to_json(index=False, orient='table'),
+    resp = Response(response=session['data'].head(int(viewhead)).to_json(),
                     status=200,
                     content_type="application/json")
     return resp
