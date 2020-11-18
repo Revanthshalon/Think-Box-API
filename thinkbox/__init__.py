@@ -34,10 +34,12 @@ def create_app():
     from thinkbox.auth import auth
     from thinkbox.dashboard import dash
     from thinkbox.analytics import ana
+    from thinkbox.sklearnmodels import skmodels
 
     # Register Blueprints
     app.register_blueprint(auth, url_prefix="/auth")
     app.register_blueprint(dash, url_prefix="/dash")
     app.register_blueprint(ana, url_prefix="/dash/analytics")
+    app.register_blueprint(skmodels, url_prefix="/dash/models")
 
     return app

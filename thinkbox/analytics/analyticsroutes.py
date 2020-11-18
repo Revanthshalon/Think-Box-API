@@ -41,5 +41,6 @@ def test():
     tr_data = test_results.T
     significant_cols = tr_data[tr_data['test decision'] == 'significant'].index.to_list()
     session['significant_cols'] = significant_cols
+    session['target'] = target
     return Response(response=test_results.to_json(), status=200,
                     content_type="application/json")
