@@ -27,28 +27,24 @@ def anova(X, y, df):
         return eval(stat_test)
 
 
-def conduct_test(df, target, drop=None):
+def conduct_test(df, target):
     """
     :param target: target feature
-    :param drop: unwanted feature(i.e, index)
     :param df: dataframe
     :return:
     """
-    if drop:
-        df = df.drop(drop, 1)
+    if df[target].dtype in (np.int64, np.bool, np.object):
+        df.loc[:, target] = df[target].astype('category')
     X = df.drop(target, 1)
     y = df[target]
     cols = X.columns.to_list()
     test_results = {}  # Dictionary to store test results
     for col in cols:
         test_results[col] = {}  # initializing the key as column name
-        if X[col].dtype == np.bool:
-            X[col] = X[col].astype(object)
-        if y.dtype == np.bool:
-            y = y.astype(object)
-
-        if X[
-            col].dtype == np.float64 and y.dtype == np.float64:  # Condition when both the predictor and the target is a qualitative variable
+        if X[col].dtype == np.float64 and y.dtype == np.float64:
+            """
+            Qualitative vs Qualitative, i.e, Pearson Correlation
+            """
             test_results[col][
                 'statistical test conducted'] = 'pearson correlation coefficient'  # Statistical Test Conducted
             test_results[col]['test statistic'] = stats.pearsonr(X[col], y)[0]  # Correlation Coefficient
@@ -58,10 +54,10 @@ def conduct_test(df, target, drop=None):
             else:
                 test_results[col]['test decision'] = 'insignificant'
 
-        elif X[col].dtype == np.object or X[
-            col].dtype == np.int64 and y.dtype == np.object:  # Categorical vs Categorical i.e, chi-square test
-            if X[col].dtype == np.int64:
-                X[col] = pd.cut(X[col], bins=3, labels=['Low', 'Medium', 'High'])
+        elif X[col].dtype.name == 'category' and y.dtype.name == 'category':
+            """
+            Categorical vs Categorical i.e, Chi-square test
+            """
             test_results[col]['statistical test conducted'] = 'chi-square test'
             ct = pd.crosstab(X[col], y)  # Creating a cross-tab of the data since both are categorical
             test_results[col]['test statistic'] = stats.chi2_contingency(ct)[0]  # Test Statistic
@@ -71,9 +67,11 @@ def conduct_test(df, target, drop=None):
             else:
                 test_results[col]['test decision'] = 'insignificant'
 
-        elif ((X[col].dtype == np.object or X[col].dtype == np.int64) and y.dtype == np.float64 and X[
-            col].nunique() == 2) or (X[col].dtype == np.float64 and (
-                y.dtype == np.object or y.dtype == np.int64) and y.nunique() == 2):  # To conduct t test of independance
+        elif (X[col].dtype.name == 'category' and y.dtype == np.float64 and X[col].nunique() == 2) or (
+                X[col].dtype == np.float64 and (y.dtype.name == 'category') and y.nunique() == 2):
+            """
+            Categorical vs Qualitative values, i.e, T Test of Independance
+            """
             test_results[col]['statistical test conducted'] = 't test independant'
             if X[col].dtype == np.object or X[col].dtype == np.int64:
                 classes = X[col].unique()  # Finding the unique classes
@@ -102,9 +100,12 @@ def conduct_test(df, target, drop=None):
                 else:
                     test_results[col]['test decision'] = 'insignificant'
 
-        elif ((X[col].dtype == np.object or X[col].dtype == np.int64) and y.dtype == np.float64 and X[
+        elif (X[col].dtype.name == 'category' and y.dtype == np.float64 and X[
             col].nunique() > 2) or (
-                X[col].dtype == np.float64 and (y.dtype == np.object or y.dtype == np.int64) and y.nunique() > 2):
+                X[col].dtype == np.float64 and (y.dtype.name == 'category') and y.nunique() > 2):
+            """
+            Conducting Anova
+            """
             test_results[col]['statistical test conducted'] = 'ANOVA'
             if X[col].dtype == np.object or X[col].dtype == np.int64:
                 test_statistic, pvalue = anova(col, y.name, df)

@@ -1,8 +1,9 @@
 from . import ana
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask import request, jsonify, Response, session, redirect
+from flask import request, jsonify, Response, session
 from thinkbox.models.uploadmodels import Uploads, UploadsSchema
 from thinkbox.utils.analytics import conduct_test
+from thinkbox.utils.dataupdate import datatype_update, preprocess_data
 import pandas as pd
 
 
@@ -16,6 +17,7 @@ def load_data():
     if not file or not file.user_id == current_user['id']:
         return Response(response="error", status=204, content_type="application/json")
     session['data'] = pd.read_csv(file.filepath)
+    session['loaded'] = True
     return jsonify(UploadsSchema().dump(file)), 200
 
 
@@ -23,33 +25,65 @@ def load_data():
 @ana.route("/view", methods=["GET"])
 @jwt_required
 def view():
-    viewhead = request.form['head']
-    if not bool(viewhead):
-        resp = Response(response=session['data'].to_json(index=False, orient='table'), status=200,
+    if session['loaded']:
+        viewhead = request.form['head']
+        if not bool(viewhead):
+            resp = Response(response=session['data'].to_json(orient='records'), status=200,
+                            content_type="application/json")
+            return resp
+        resp = Response(response=session['data'].head(int(viewhead)).to_json(orient='records'),
+                        status=200,
                         content_type="application/json")
         return resp
-    resp = Response(response=session['data'].head(int(viewhead)).to_json(),
-                    status=200,
-                    content_type="application/json")
-    return resp
+    else:
+        return Response(response={"message": "data not loaded"}, status=204, content_type='application/json')
 
 
 # Updating the schema of the data if there were any changes in the data.
 @ana.route("/update", methods=["POST"])
 @jwt_required
 def update_data():
-    df = session['data'] # loading the data into the dataframe
+    if session['loaded']:
+        df = session['data']  # loading the data into the dataframe
+        updates = request.get_json()
+        df = datatype_update(df, updates)
+        session['data'] = df
+        return Response(response=session['data'].to_json(orient='records'), status=200, content_type="application/json")
+    else:
+        return Response(response={"message": "data not loaded"}, status=204, content_type='application/json')
+
+
+# Preprocessing the data
+@ana.route("/preprocess", methods=["GET"])
+@jwt_required
+def preprocess():
+    target = request.get_json()['target']
+    style = request.get_json()['style']
+    bins = request.get_json()['bins']
+    labels = request.get_json()['labels']
+    droppable = request.get_json()['drop']
+    df = session['data']  # Loading the data into dataframe
+    if not style:
+        df = preprocess_data(df, target, droppable)
+    else:
+        df = preprocess_data(df, target, droppable, style, bins, labels)
+    session['data'] = df
+    session['target'] = target
+    session['preprocessed'] = True
+    return Response(response=session['data'].to_json(orient='records'), status=200, content_type='application/json')
 
 
 @ana.route("/test")
 @jwt_required
 def test():
-    droppable = request.form['drop']
-    target = request.form['target']
-    test_results = conduct_test(session['data'], target, droppable)
-    tr_data = test_results.T
-    significant_cols = tr_data[tr_data['test decision'] == 'significant'].index.to_list()
-    session['significant_cols'] = significant_cols
-    session['target'] = target
-    return Response(response=test_results.to_json(), status=200,
-                    content_type="application/json")
+    if session['preprocessed']:
+        target = session['target']  # Getting our target feature from the session storage
+        df = session['data']  # Loading the preprocessed dataframe
+        test_results = conduct_test(df, target)
+        tr_data = test_results.T
+        significant_cols = tr_data[tr_data['test decision'] == 'significant'].index.to_list()
+        session['significant_cols'] = significant_cols
+        return Response(response=test_results.to_json(), status=200,
+                        content_type="application/json")
+    else:
+        return Response(response={"message": "data not loaded"}, status=204, content_type='application/json')

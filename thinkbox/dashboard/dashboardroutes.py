@@ -1,5 +1,5 @@
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask import request, jsonify
+from flask import request, jsonify, session
 from werkzeug.utils import secure_filename
 from . import dash
 import os
@@ -41,6 +41,9 @@ def upload():
 @dash.route("/files", methods=["GET"])
 @jwt_required
 def allfiles():
+    # Setting Flags
+    session['preprocessed'] = False
+    session['loaded'] = False
     # Show files from specific user.
     user_details = get_jwt_identity()
     file_details = Uploads.query.filter_by(user_id=user_details['id']).all()
