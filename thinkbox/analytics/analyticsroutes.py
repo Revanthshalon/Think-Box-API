@@ -1,11 +1,12 @@
 from . import ana
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask import request, jsonify, Response, session
+from flask import request, jsonify, Response, session, redirect
 from thinkbox.models.uploadmodels import Uploads, UploadsSchema
 from thinkbox.utils.analytics import conduct_test
 import pandas as pd
 
 
+# To load the particular data for preprocessing and analytics.
 @ana.route("/load", methods=["GET"])
 @jwt_required
 def load_data():
@@ -18,6 +19,7 @@ def load_data():
     return jsonify(UploadsSchema().dump(file)), 200
 
 
+# View the data along with the types to check if the data is inferred properly
 @ana.route("/view", methods=["GET"])
 @jwt_required
 def view():
@@ -30,6 +32,13 @@ def view():
                     status=200,
                     content_type="application/json")
     return resp
+
+
+# Updating the schema of the data if there were any changes in the data.
+@ana.route("/update", methods=["POST"])
+@jwt_required
+def update_data():
+    df = session['data'] # loading the data into the dataframe
 
 
 @ana.route("/test")
