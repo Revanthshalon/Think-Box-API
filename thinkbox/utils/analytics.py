@@ -58,7 +58,7 @@ def conduct_test(df, target):
             """
             Categorical vs Categorical i.e, Chi-square test
             """
-            test_results[col]['statistical test conducted'] = 'chi-square test'
+            test_results[col]['statistical test conducted'] = 'Chi-square Test'
             ct = pd.crosstab(X[col], y)  # Creating a cross-tab of the data since both are categorical
             test_results[col]['test statistic'] = stats.chi2_contingency(ct)[0]  # Test Statistic
             test_results[col]['p value'] = stats.chi2_contingency(ct)[1]  # p value for chi-square
@@ -70,35 +70,58 @@ def conduct_test(df, target):
         elif (X[col].dtype.name == 'category' and y.dtype == np.float64 and X[col].nunique() == 2) or (
                 X[col].dtype == np.float64 and (y.dtype.name == 'category') and y.nunique() == 2):
             """
-            Categorical vs Qualitative values, i.e, T Test of Independance
+            Categorical vs Qualitative values, i.e, T Test of Independance or MannWhitneyU Test
             """
-            test_results[col]['statistical test conducted'] = 't test independant'
             if X[col].dtype == np.object or X[col].dtype == np.int64:
                 classes = X[col].unique()  # Finding the unique classes
                 groups = {}
                 for c in classes:
                     groups[c] = df[df[col] == c][target]
-                test_results[col]['test statistic'] = stats.ttest_ind(groups[classes[0]], groups[classes[1]])[
-                    0]  # Test Statistic
-                test_results[col]['p value'] = stats.ttest_ind(groups[classes[0]], groups[classes[1]])[
-                    1]  # p value for t test of independance
-                if test_results[col]['p value'] < 0.05:  # Significance of the features
-                    test_results[col]['test decision'] = 'significant'
+                if stats.jarque_bera(df[target])[1] > 0.05:
+                    test_results[col]['statistical test conducted'] = 'Independant T Test'
+                    test_results[col]['test statistic'] = stats.ttest_ind(groups[classes[0]], groups[classes[1]])[
+                        0]  # Test Statistic
+                    test_results[col]['p value'] = stats.ttest_ind(groups[classes[0]], groups[classes[1]])[
+                        1]  # p value for t test of independance
+                    if test_results[col]['p value'] < 0.05:  # Significance of the features
+                        test_results[col]['test decision'] = 'significant'
+                    else:
+                        test_results[col]['test decision'] = 'insignificant'
                 else:
-                    test_results[col]['test decision'] = 'insignificant'
+                    test_results[col]['statistical test conducted'] = 'Mann Whitney Test'
+                    test_results[col]['test statistic'] = stats.mannwhitneyu(groups[classes[0]], groups[classes[1]])[
+                        0]  # Test Statistic
+                    test_results[col]['p value'] = stats.mannwhitneyu(groups[classes[0]], groups[classes[1]])[
+                        1]  # p value for Mann Whitney Test
+                    if test_results[col]['p value'] < 0.05:  # Significance of the features
+                        test_results[col]['test decision'] = 'significant'
+                    else:
+                        test_results[col]['test decision'] = 'insignificant'
             else:
                 classes = y.unique()  # Finding the unique classes
                 groups = {}
                 for c in classes:
                     groups[c] = df[df[target] == c][col]
-                test_results[col]['test statistic'] = stats.ttest_ind(groups[classes[0]], groups[classes[1]])[
-                    0]  # Test Statistic
-                test_results[col]['p value'] = stats.ttest_ind(groups[classes[0]], groups[classes[1]])[
-                    1]  # p value for t test of independance
-                if test_results[col]['p value'] < 0.05:  # Significance of the features
-                    test_results[col]['test decision'] = 'significant'
+                if stats.jarque_bera(df[col])[1] > 0.05:
+                    test_results[col]['statistical test conducted'] = 'Independant T Test'
+                    test_results[col]['test statistic'] = stats.ttest_ind(groups[classes[0]], groups[classes[1]])[
+                        0]  # Test Statistic
+                    test_results[col]['p value'] = stats.ttest_ind(groups[classes[0]], groups[classes[1]])[
+                        1]  # p value for t test of independance
+                    if test_results[col]['p value'] < 0.05:  # Significance of the features
+                        test_results[col]['test decision'] = 'significant'
+                    else:
+                        test_results[col]['test decision'] = 'insignificant'
                 else:
-                    test_results[col]['test decision'] = 'insignificant'
+                    test_results[col]['statistical test conducted'] = 'Mann Whitney Test'
+                    test_results[col]['test statistic'] = stats.mannwhitneyu(groups[classes[0]], groups[classes[1]])[
+                        0]  # Test Statistic
+                    test_results[col]['p value'] = stats.mannwhitneyu(groups[classes[0]], groups[classes[1]])[
+                        1]  # p value for Mann Whitney
+                    if test_results[col]['p value'] < 0.05:  # Significance of the features
+                        test_results[col]['test decision'] = 'significant'
+                    else:
+                        test_results[col]['test decision'] = 'insignificant'
 
         elif (X[col].dtype.name == 'category' and y.dtype == np.float64 and X[
             col].nunique() > 2) or (

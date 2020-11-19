@@ -4,6 +4,7 @@ from flask import request, jsonify, Response, session
 from thinkbox.models.uploadmodels import Uploads, UploadsSchema
 from thinkbox.utils.analytics import conduct_test
 from thinkbox.utils.dataupdate import datatype_update, preprocess_data
+from thinkbox.utils.regression import *
 import pandas as pd
 
 
@@ -70,6 +71,8 @@ def preprocess():
     session['data'] = df
     session['target'] = target
     session['preprocessed'] = True
+    session['num_cols'] = df.drop(target, 1).select_dtypes(exclude='category')
+    session['cat_cols'] = df.drop(target, 1).select_dtypes('category')
     return Response(response=session['data'].to_json(orient='records'), status=200, content_type='application/json')
 
 
@@ -87,3 +90,36 @@ def test():
                         content_type="application/json")
     else:
         return Response(response={"message": "data not loaded"}, status=204, content_type='application/json')
+
+
+@ana.route("model-analytics", methods=['GET'])
+@jwt_required
+def model_analytics():
+    # Current Version of API's Regression models
+    regression_models = {
+        'Linear Regression': linear_regression,
+        'Decision Tree': decision_tree,
+        'Random Forest': random_forest,
+        'KNN Regression': knn_regression,
+        'Ada Boost': ada_boost,
+        'Gradient Boost': gradient_boost,
+        'Polynomial Regression': polynomial_regression,
+        'Elastic Net': elastic_net,
+        'Ridge Regression': ridge_regression,
+        'Lasso Regression': lasso_regression,
+        'Light GBM': lightgbm,
+        'XGB Regression': xgb_regression,
+    }
+    models = request.get_json()['models']
+    test_results = {}
+    df = session['data']
+    significant_cols = session['significant_cols']
+    target = session['target']
+    cat_cols = session['cat_cols']
+    num_cols = session['num_cols']
+    for model in models:
+        test_results[model]['r2 score'], test_results[model]['rmse'] = regression_models[model](df, significant_cols,
+                                                                                                target, num_cols,
+                                                                                                cat_cols)
+    model_info = pd.DataFrame(test_results)
+    return
