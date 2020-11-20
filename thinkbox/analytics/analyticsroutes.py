@@ -5,6 +5,7 @@ from thinkbox.models.uploadmodels import Uploads, UploadsSchema
 from thinkbox.utils.analytics import *
 from thinkbox.utils.dataupdate import datatype_update, preprocess_data
 from thinkbox.utils.regression import *
+from thinkbox.utils.classification import *
 import pandas as pd
 
 
@@ -30,10 +31,10 @@ def view():
     if session['loaded']:
         viewhead = request.form['head']
         if not bool(viewhead):
-            resp = Response(response=session['data'].to_json(orient='records'), status=200,
+            resp = Response(response=session['data'].to_json(orient='table'), status=200,
                             content_type="application/json")
             return resp
-        resp = Response(response=session['data'].head(int(viewhead)).to_json(orient='records'),
+        resp = Response(response=session['data'].head(int(viewhead)).to_json(orient='table'),
                         status=200,
                         content_type="application/json")
         return resp
@@ -50,7 +51,7 @@ def update_data():
         updates = request.get_json()
         df = datatype_update(df, updates)
         session['data'] = df
-        return Response(response=session['data'].to_json(orient='records'), status=200, content_type="application/json")
+        return Response(response=session['data'].to_json(orient='table'), status=200, content_type="application/json")
     else:
         return Response(response={"message": "data not loaded"}, status=204, content_type='application/json')
 
@@ -72,7 +73,8 @@ def preprocess():
     session['data'] = df
     session['target'] = target
     session['preprocessed'] = True
-    return Response(response=session['data'].to_json(orient='records'), status=200, content_type='application/json')
+    session['model-type'] = 'regression' if session['data'][target].dtype == np.float64 else 'classification'
+    return Response(response=session['data'].to_json(orient='table'), status=200, content_type='application/json')
 
 
 # Correlation Matrix
@@ -83,7 +85,7 @@ def correlation():
         df = session['data']
         method = request.get_json()['method']
         session['corr_matrix'] = corr(df, method)
-        resp = Response(response=session['corr_matrix'].to_json(orient='records'), status=200,
+        resp = Response(response=session['corr_matrix'].to_json(orient='table'), status=200,
                         content_type='application/json')
         return resp
     else:
@@ -99,7 +101,7 @@ def pp_score():
         df = session['data']
         target = session['target']
         session['pred_power'] = pred_power(df, target)
-        resp = Response(response=session['pred_power'].to_json(orient='records'), status=200,
+        resp = Response(response=session['pred_power'].to_json(orient='table'), status=200,
                         content_type='application/json')
         return resp
     else:
@@ -120,7 +122,7 @@ def test():
         session['significant_cols'] = significant_cols
         session['num_cols'] = df[significant_cols].select_dtypes(exclude='category').columns.to_list()
         session['cat_cols'] = df[significant_cols].select_dtypes('category').columns.to_list()
-        return Response(response=test_results.to_json(), status=200,
+        return Response(response=test_results.to_json(orient='table'), status=200,
                         content_type="application/json")
     else:
         return Response(response={"message": "data not loaded"}, status=204, content_type='application/json')
@@ -129,35 +131,33 @@ def test():
 @ana.route("model-analytics", methods=['GET'])
 @jwt_required
 def model_analytics():
-    # Current Version of API's Regression models
-    regression_models = {
-        'Linear Regression': linear_regression,
-        'Decision Tree': decision_tree,
-        'Random Forest': random_forest,
-        'KNN Regression': knn_regression,
-        'Ada Boost': ada_boost,
-        'Gradient Boost': gradient_boost,
-        'Polynomial Regression': polynomial_regression,
-        'Elastic Net': elastic_net,
-        'Ridge Regression': ridge_regression,
-        'Lasso Regression': lasso_regression,
-        'Light GBM': lightgbm,
-        'XGB Regression': xgb_regression,
-    }
     models = request.get_json()['models']
-    models = models if bool(models) else regression_models.keys()
     test_results = {}
     df = session['data']
     significant_cols = session['significant_cols']
     target = session['target']
     cat_cols = session['cat_cols']
     num_cols = session['num_cols']
-    for model in models:
-        test_results[model] = {}
-        test_results[model]['r2 score'], test_results[model]['rmse'], test_results[model]['model_params'] = \
-            regression_models[model](df, significant_cols,
-                                     target, num_cols,
-                                     cat_cols)
-    model_info = pd.DataFrame(test_results)
-    resp = Response(response=model_info.to_json(orient='records'), status=200, content_type="application/json")
-    return resp
+    # Current Version of API's Regression models
+    if session['model-type'] == 'regression':
+        models = models if bool(models) else regression_models.keys()
+        for model in models:
+            test_results[model] = {}
+            test_results[model]['r2 score'], test_results[model]['rmse'], test_results[model]['r2 variance'], \
+            test_results[model]['rmse variance'], test_results[model]['r2 validation'], test_results[model][
+                'rmse validation'], test_results[model]['model_params'] = \
+                regression_models[model](df, significant_cols, target, cat_cols, num_cols)
+        model_info = pd.DataFrame(test_results)
+        resp = Response(response=model_info.to_json(orient='table'), status=200, content_type="application/json")
+        return resp
+    elif session['model-type'] == 'classification':
+        models = models if bool(models) else classification_models.keys()
+        for model in models:
+            test_results[model] = {}
+            test_results[model]['accuracy score'], test_results[model]['precision score'], test_results[model][
+                'recall score'], test_results[model]['auc roc score'], test_results[model]['model_params'] = \
+                classification_models[model](df, significant_cols, target, cat_cols, num_cols)
+        model_info = pd.DataFrame(test_results)
+        resp = Response(response=model_info.to_json(orient='table'), status=200,
+                        content_type="application/json")
+        return resp
