@@ -25,6 +25,7 @@ marshmallow-sqlalchemy==0.24.1
 numpy==1.19.3
 pandas==1.1.4
 patsy==0.5.1
+ppscore==1.1.1
 psycopg2==2.8.6
 pycparser==2.20
 PyJWT==1.7.1

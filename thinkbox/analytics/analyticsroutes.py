@@ -2,7 +2,7 @@ from . import ana
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask import request, jsonify, Response, session
 from thinkbox.models.uploadmodels import Uploads, UploadsSchema
-from thinkbox.utils.analytics import conduct_test
+from thinkbox.utils.analytics import *
 from thinkbox.utils.dataupdate import datatype_update, preprocess_data
 from thinkbox.utils.regression import *
 import pandas as pd
@@ -19,6 +19,7 @@ def load_data():
         return Response(response="error", status=204, content_type="application/json")
     session['data'] = pd.read_csv(file.filepath)
     session['loaded'] = True
+    session['preprocessed'] = False
     return jsonify(UploadsSchema().dump(file)), 200
 
 
@@ -71,11 +72,42 @@ def preprocess():
     session['data'] = df
     session['target'] = target
     session['preprocessed'] = True
-    session['num_cols'] = df.drop(target, 1).select_dtypes(exclude='category')
-    session['cat_cols'] = df.drop(target, 1).select_dtypes('category')
     return Response(response=session['data'].to_json(orient='records'), status=200, content_type='application/json')
 
 
+# Correlation Matrix
+@ana.route("/correlation")
+@jwt_required
+def correlation():
+    if session['preprocessed']:
+        df = session['data']
+        method = request.get_json()['method']
+        session['corr_matrix'] = corr(df, method)
+        resp = Response(response=session['corr_matrix'].to_json(orient='records'), status=200,
+                        content_type='application/json')
+        return resp
+    else:
+        resp = Response(response={'please preprocess the data'}, status=200, content_type="application/json")
+        return resp
+
+
+# Prediction Power
+@ana.route("/prediction-power")
+@jwt_required
+def pp_score():
+    if session['preprocessed']:
+        df = session['data']
+        target = session['target']
+        session['pred_power'] = pred_power(df, target)
+        resp = Response(response=session['pred_power'].to_json(orient='records'), status=200,
+                        content_type='application/json')
+        return resp
+    else:
+        resp = Response(response={'message': 'please preprocess the data'}, status=200, content_type="application/json")
+        return resp
+
+
+# Conduct Statistical Test
 @ana.route("/test")
 @jwt_required
 def test():
@@ -86,6 +118,8 @@ def test():
         tr_data = test_results.T
         significant_cols = tr_data[tr_data['test decision'] == 'significant'].index.to_list()
         session['significant_cols'] = significant_cols
+        session['num_cols'] = df[significant_cols].select_dtypes(exclude='category').columns.to_list()
+        session['cat_cols'] = df[significant_cols].select_dtypes('category').columns.to_list()
         return Response(response=test_results.to_json(), status=200,
                         content_type="application/json")
     else:
@@ -111,6 +145,7 @@ def model_analytics():
         'XGB Regression': xgb_regression,
     }
     models = request.get_json()['models']
+    models = models if bool(models) else regression_models.keys()
     test_results = {}
     df = session['data']
     significant_cols = session['significant_cols']
@@ -118,8 +153,11 @@ def model_analytics():
     cat_cols = session['cat_cols']
     num_cols = session['num_cols']
     for model in models:
-        test_results[model]['r2 score'], test_results[model]['rmse'] = regression_models[model](df, significant_cols,
-                                                                                                target, num_cols,
-                                                                                                cat_cols)
+        test_results[model] = {}
+        test_results[model]['r2 score'], test_results[model]['rmse'], test_results[model]['model_params'] = \
+            regression_models[model](df, significant_cols,
+                                     target, num_cols,
+                                     cat_cols)
     model_info = pd.DataFrame(test_results)
-    return
+    resp = Response(response=model_info.to_json(orient='records'), status=200, content_type="application/json")
+    return resp

@@ -1,6 +1,7 @@
 from scipy import stats
 import pandas as pd
 import numpy as np
+import ppscore as pps
 
 
 # Defining our ANOVA
@@ -12,6 +13,26 @@ def anova(X, y, df):
     :return:
     """
     # Checking if the datatype of our X parameter is object
+    if df[y].dtype == np.float64:
+        groups = {}  # For storing our grouped data
+        classes = df[X].unique()  # Getting the different classes
+        mystr = ''  # Initialize an Empty string
+        for c in classes:
+            groups[c] = df[df[X] == c][y]
+        for k, v in groups.items():
+            if not isinstance(k, str):
+                mystr += 'groups[' + str(k) + '],'
+            else:
+                mystr += 'groups["' + k + '"],'
+        stat_test = 'stats.f_oneway(' + mystr + ')'
+        return eval(stat_test)
+
+
+# Defining our Kruskal Wallis Test
+def kw_test(X, y, df):
+    """
+    Non-parametric test for ANOVA
+    """
     if df[y].dtype == np.float64:
         groups = {}  # For storing our grouped data
         classes = df[X].unique()  # Getting the different classes
@@ -130,7 +151,7 @@ def conduct_test(df, target):
             Conducting Anova
             """
             test_results[col]['statistical test conducted'] = 'ANOVA'
-            if X[col].dtype == np.object or X[col].dtype == np.int64:
+            if X[col].dtype.name == 'category':
                 test_statistic, pvalue = anova(col, y.name, df)
             else:
                 test_statistic, pvalue = anova(y.name, col, df)
@@ -142,3 +163,13 @@ def conduct_test(df, target):
                 test_results[col]['test decision'] = 'insignificant'
 
     return pd.DataFrame(test_results)
+
+
+def corr(df, method=None):
+    return df.corr(method) if bool(method) else df.corr()
+
+
+def pred_power(df, target):
+    pp = pps.matrix(df)
+    pp = pp[(pp['y'] == target) & (pp['case'] != 'predict_itself')]
+    return pp
